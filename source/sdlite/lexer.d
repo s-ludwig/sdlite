@@ -6,8 +6,7 @@ import sdlite.internal : MultiAppender;
 import std.algorithm.comparison : among;
 import std.algorithm.mutation : move, swap;
 import std.range;
-import std.datetime : Date, DateTime, LocalTime, PosixTimeZone, SimpleTimeZone,
-	SysTime, TimeZone, UTC, WindowsTimeZone;
+import std.datetime;
 import std.uni : isAlpha, isWhite;
 import std.utf : byCodeUnit, decodeFront;
 import core.time : Duration, days, hours, minutes, seconds, msecs, hnsecs;

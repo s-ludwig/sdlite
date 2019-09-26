@@ -45,11 +45,15 @@ unittest {
 		[SDLValue.int_(42)],
 		[SDLAttribute("bar", SDLValue.int_(123))])]);
 	test("foo {\nbar\n}", [SDLNode("foo", null, null, [SDLNode("bar")])]);
+	test("\nfoo", [SDLNode("foo")]);
 }
 
 private void parseNodes(alias NodeHandler, R)(ref R tokens, ref ParserContext ctx, size_t depth)
 {
 	import std.algorithm.comparison : among;
+
+	while (!tokens.empty && tokens.front.type.among(TokenType.eol, TokenType.semicolon))
+		tokens.popFront();
 
 	while (!tokens.empty && !tokens.front.type.among(TokenType.eof, TokenType.blockClose)) {
 		auto n = tokens.parseNode(ctx, depth);

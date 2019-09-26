@@ -1,10 +1,18 @@
 SDLite - a lightweight SDLang parser/generator
-----------------------------------------------
+==============================================
 
 This library implements a small and efficient parser/generator for SDLang
 documents, providing a range based API. While the parser still uses the GC to
 allocate identifiers, strings etc., it uses a very efficient pool based
 allocation scheme that has very low computation and memory overhead.
+
+[![DUB Package](https://img.shields.io/dub/v/sdlite.svg)](https://code.dlang.org/packages/sdlite)
+[![Build Status](https://travis-ci.org/s-ludwig/sdlite.svg?branch=master)](https://travis-ci.org/s-ludwig/sdlite)
+[![codecov](https://codecov.io/gh/s-ludwig/sdlite/branch/master/graph/badge.svg)](https://codecov.io/gh/s-ludwig/sdlite)
+
+
+Project origins
+---------------
 
 The motivation for writing another SDLang implementation for D came from the
 high overhead that the original [sdlang-d][1] implementation has. Parsing a

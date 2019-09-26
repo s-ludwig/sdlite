@@ -883,6 +883,7 @@ unittest { // single token tests
 	test("123.123D", TokenType.number, "123.123D", SDLValue.double_(123.123));
 	test("123d", TokenType.number, "123d", SDLValue.double_(123));
 	test("123D", TokenType.number, "123D", SDLValue.double_(123));
+	test("1.0", TokenType.number, "1.0", SDLValue.double_(1.0));
 	test("123.123bd", TokenType.number, "123.123bd"); // TODO
 	test("123.123BD", TokenType.number, "123.123BD"); // TODO
 	test("2015/12/06", TokenType.date, "2015/12/06", SDLValue.date(Date(2015, 12, 6)));

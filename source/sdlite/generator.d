@@ -83,8 +83,8 @@ private void generateSDLang(R)(ref R dst, in ref SDLValue value)
 		(int v) { dst.formattedWrite("%s", v); },
 		(long v) { dst.formattedWrite("%sL", v); },
 		(long[2] v) { assert(false); },
-		(float v) { dst.formattedWrite("%sf", v); },
-		(double v) { dst.formattedWrite("%s", v); },
+		(float v) { dst.writeFloat(v); dst.put('f'); },
+		(double v) { dst.writeFloat(v); },
 		(bool v) { dst.put(v ? "true" : "false"); },
 		(SysTime v) {
 			auto dt = cast(DateTime)v;
@@ -139,6 +139,7 @@ unittest {
 	test(SDLValue.long_(long.min), "-9223372036854775808L");
 	test(SDLValue.float_(2.2f), "2.2f");
 	test(SDLValue.double_(2.2), "2.2");
+	test(SDLValue.double_(1.0), "1.0"); // make sure there is always a fractional part
 	test(SDLValue.date(Date(2015, 12, 6)), "2015/12/06");
 	test(SDLValue.duration(12.hours + 14.minutes + 34.seconds), "12:14:34");
 	test(SDLValue.duration(12.hours + 14.minutes + 34.seconds + 123.msecs), "12:14:34.123");
@@ -175,13 +176,86 @@ unittest {
 	assert(app.data == `foo\\bar\r\n\t\tbäz\"`, app.data);
 }
 
-
 private void putIndentation(R)(ref R dst, size_t level)
 {
 	foreach (i; 0 .. level)
 		dst.put('\t');
 }
 
+// output a floating point number in pure decimal format, without losing
+// precision (at least approximately) and without redundant zeros
+private void writeFloat(R, F)(ref R dst, F num)
+{
+	import std.format : formattedWrite;
+	import std.math : floor, fmod, isNaN, log10;
+
+	static if (is(F == float)) enum sig = 7;
+	else enum sig = 15;
+
+	if (num.isNaN || num == F.infinity || num == -F.infinity) {
+		dst.put("0.0");
+		return;
+	}
+
+	if (!num) {
+		dst.put("0.0");
+		return;
+	}
+
+	if (fmod(num, F(1)) == 0) dst.formattedWrite("%.1f", num);
+	else {
+		if (num < 0) {
+			dst.put('-');
+			num = -num;
+		}
+
+		auto firstdig = cast(long)floor(log10(num));
+		if (firstdig >= sig) dst.formattedWrite("%.1f", num);
+		else {
+			char[32] fmt;
+			char[] fmtdst = fmt[];
+			fmtdst.formattedWrite("%%.%sg", sig - firstdig);
+			dst.formattedWrite(fmt[0 .. $-fmtdst.length], num);
+		}
+	}
+}
+
+unittest {
+	void test(F)(F v, string txt)
+	{
+		auto app = appender!string;
+		app.writeFloat(v);
+		assert(app.data == txt, app.data);
+	}
+
+	test(float.infinity, "0.0");
+	test(-float.infinity, "0.0");
+	test(float.nan, "0.0");
+
+	test(double.infinity, "0.0");
+	test(-double.infinity, "0.0");
+	test(double.nan, "0.0");
+
+	test(0.0, "0.0");
+	test(1.0, "1.0");
+	test(-1.0, "-1.0");
+	test(0.0f, "0.0");
+	test(1.0f, "1.0");
+	test(-1.0f, "-1.0");
+
+	test(100.0, "100.0");
+	test(0.0078125, "0.0078125");
+	test(100.001, "100.001");
+	test(-100.0, "-100.0");
+	test(-0.0078125, "-0.0078125");
+	test(-100.001, "-100.001");
+	test(100.0f, "100.0");
+	test(0.0078125f, "0.0078125");
+	test(100.01f, "100.01");
+	test(-100.0f, "-100.0");
+	test(-0.0078125f, "-0.0078125");
+	test(-100.01f, "-100.01");
+}
 
 private void writeFracSecs(R)(ref R dst, long hnsecs)
 {

@@ -673,8 +673,7 @@ private struct SDLangLexer(R)
 					return TokenType.number;
 				}
 
-				// TODO: decimal
-				return TokenType.invalid;
+				return TokenType.number;
 			case 'l', 'L': // long integer
 				skipChar!false();
 				return TokenType.number;
@@ -899,4 +898,5 @@ unittest { // single token tests
 
 	test(" {", TokenType.blockOpen, "{", SDLValue.null_, " ");
 	test("\t {", TokenType.blockOpen, "{", SDLValue.null_, "\t ");
+	test("0.5\n", TokenType.number, "0.5", SDLValue(0.5), "", true);
 }

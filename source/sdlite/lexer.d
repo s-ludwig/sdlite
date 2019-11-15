@@ -336,6 +336,8 @@ private struct SDLangLexer(R)
 
 	private void readNextToken()
 	{
+		import std.algorithm.comparison : equal;
+
 		m_token.whitespacePrefix = skipWhitespace();
 		m_token.location = m_location;
 
@@ -348,12 +350,23 @@ private struct SDLangLexer(R)
 		auto tstart = m_input.save;
 		m_token.type = skipToken();
 		m_token.text = tstart.take(m_location.offset - m_token.location.offset);
+
+		// keywords are initially parsed as identifiers
+		if (m_token.type == TokenType.identifier
+			&& m_token.text.front.among!('o', 't', 'f', 'n'))
+		{
+			if (m_token.text.equal("on") || m_token.text.equal("off") ||
+				m_token.text.equal("true") || m_token.text.equal("false"))
+			{
+				m_token.type = TokenType.boolean;
+			} else if (m_token.text.equal("null")) {
+				m_token.type = TokenType.null_;
+			}
+		}
 	}
 
 	private TokenType skipToken()
 	{
-		bool in_identifier;
-
 		switch (m_input.front) {
 			case '\r':
 				skipChar!true();
@@ -491,69 +504,27 @@ private struct SDLangLexer(R)
 			case ':': skipChar!false(); return TokenType.namespace;
 			case '0': .. case '9': // number or date/time
 				return skipNumericToken();
-			case 't':
-				skipChar!false();
-				if (skipOver("rue")) {
-					return TokenType.boolean;
-				}
-				in_identifier = true;
-				goto default;
-			case 'f':
-				skipChar!false();
-				if (skipOver("alse")) {
-					return TokenType.boolean;
-				}
-				in_identifier = true;
-				goto default;
-			case 'o':
-				skipChar!false();
-				in_identifier = true;
-				if (m_input.empty) goto default;
-				if (m_input.front == 'n') {
-					skipChar!false();
-					return TokenType.boolean;
-				}
-				if (m_input.front == 'f') {
-					skipChar!false();
-					if (!m_input.empty && m_input.front == 'f') {
-						skipChar!false();
-						return TokenType.boolean;
-					}
-				}
-				goto default;
-			case 'n':
-				skipChar!false();
-				if (skipOver("ull")) {
-					return TokenType.null_;
-				}
-				in_identifier = true;
-				goto default;
-			case '_':
-				in_identifier = true;
-				goto default;
 			default: // identifier
-				if (!in_identifier) {
-					auto ch = m_input.front;
-					switch (ch) {
-						case '0': .. case '9':
-						case 'A': .. case 'Z':
-						case 'a': .. case 'z':
-						case '_':
-							skipChar!false();
-							break;
-						default:
-							size_t n;
-							auto dch = m_input.decodeFront(n);
-							m_location.offset += n;
-							m_location.column += n;
-							if (!dch.isAlpha && dch != '_')
-								return TokenType.invalid;
-							break;
-					}
+				const chf = m_input.front;
+				switch (chf) {
+					case '0': .. case '9':
+					case 'A': .. case 'Z':
+					case 'a': .. case 'z':
+					case '_':
+						skipChar!false();
+						break;
+					default:
+						size_t n;
+						auto dch = m_input.decodeFront(n);
+						m_location.offset += n;
+						m_location.column += n;
+						if (!dch.isAlpha && dch != '_')
+							return TokenType.invalid;
+						break;
 				}
 
 				outer: while (!m_input.empty) {
-					char ch = m_input.front;
+					const ch = m_input.front;
 					switch (ch) {
 						case '0': .. case '9':
 						case 'A': .. case 'Z':
@@ -852,11 +823,11 @@ unittest { // single token tests
 	test("false", TokenType.boolean, "false", SDLValue.bool_(false));
 	test("on", TokenType.boolean, "on", SDLValue.bool_(true));
 	test("off", TokenType.boolean, "off", SDLValue.bool_(false));
-	/*test("on_", TokenType.identifier, "on_");
-	test("off_", TokenType.identifier, "of_");
+	test("on_", TokenType.identifier, "on_");
+	test("off_", TokenType.identifier, "off_");
 	test("true_", TokenType.identifier, "true_");
 	test("false_", TokenType.identifier, "false_");
-	test("null_", TokenType.identifier, "null_");*/
+	test("null_", TokenType.identifier, "null_");
 	test("-", TokenType.invalid, "-");
 	test("%", TokenType.invalid, "%");
 	test("\\", TokenType.invalid, "\\");

@@ -72,13 +72,15 @@ void generateSDLang(R)(ref R dst, in ref SDLNode node, size_t level = 0)
 }
 
 
-private void generateSDLang(R)(ref R dst, in ref SDLValue value)
+/** Writes a single SDLang value to the given output range.
+*/
+void generateSDLang(R)(ref R dst, in ref SDLValue value)
 {
 	import std.format : formattedWrite;
 
 	value.visit!(
 		() { dst.put("null"); },
-		(string v) { dst.put('"'); dst.escapeString(v); dst.put('"'); },
+		(string v) { dst.put('"'); dst.escapeSDLString(v); dst.put('"'); },
 		(immutable(ubyte)[] v) { dst.put('['); dst.generateBase64(v); dst.put(']'); },
 		(int v) { dst.formattedWrite("%s", v); },
 		(long v) { dst.formattedWrite("%sL", v); },
@@ -153,7 +155,9 @@ unittest {
 }
 
 
-private void escapeString(R)(ref R dst, in char[] str)
+/** Escapes a given string to ensure safe usage within an SDLang quoted string.
+*/
+void escapeSDLString(R)(ref R dst, in char[] str)
 {
 	// TODO: insert line breaks
 	foreach (char ch; str) {
@@ -172,7 +176,7 @@ unittest {
 	import std.array : appender;
 
 	auto app = appender!string;
-	app.escapeString("foo\\bar\r\n\t\tbäz\"");
+	app.escapeSDLString("foo\\bar\r\n\t\tbäz\"");
 	assert(app.data == `foo\\bar\r\n\t\tbäz\"`, app.data);
 }
 

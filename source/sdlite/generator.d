@@ -48,7 +48,7 @@ ne {
 
 /** Writes out single `SDLNode` to a `char` based output range.
 */
-void generateSDLang(R)(ref R dst, in ref SDLNode node, size_t level = 0)
+void generateSDLang(R)(ref R dst, in auto ref SDLNode node, size_t level = 0)
 {
 	auto name = node.qualifiedName == "content" ? "" : node.qualifiedName;
 	dst.putIndentation(level);
@@ -74,7 +74,7 @@ void generateSDLang(R)(ref R dst, in ref SDLNode node, size_t level = 0)
 
 /** Writes a single SDLang value to the given output range.
 */
-void generateSDLang(R)(ref R dst, in ref SDLValue value)
+void generateSDLang(R)(ref R dst, in auto ref SDLValue value)
 {
 	import std.format : formattedWrite;
 

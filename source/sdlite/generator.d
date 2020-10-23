@@ -78,37 +78,75 @@ void generateSDLang(R)(ref R dst, in auto ref SDLValue value)
 {
 	import std.format : formattedWrite;
 
-	value.visit!(
-		() { dst.put("null"); },
-		(string v) { dst.put('"'); dst.escapeSDLString(v); dst.put('"'); },
-		(immutable(ubyte)[] v) { dst.put('['); dst.generateBase64(v); dst.put(']'); },
-		(int v) { dst.formattedWrite("%s", v); },
-		(long v) { dst.formattedWrite("%sL", v); },
-		(long[2] v) { assert(false); },
-		(float v) { dst.writeFloat(v); dst.put('f'); },
-		(double v) { dst.writeFloat(v); },
-		(bool v) { dst.put(v ? "true" : "false"); },
-		(SysTime v) {
-			auto dt = cast(DateTime)v;
-			auto fracsec = v.fracSecs;
+	// NOTE: using final switch instead of visit, because the latter causes
+	//       the creation of a heap delegate
+
+	final switch (value.kind) {
+		case SDLValue.Kind.null_:
+			dst.put("null");
+			break;
+		case SDLValue.Kind.text:
+			dst.put('"');
+			dst.escapeSDLString(value.textValue);
+			dst.put('"');
+			break;
+		case SDLValue.Kind.binary:
+			dst.put('[');
+			dst.generateBase64(value.binaryValue);
+			dst.put(']');
+			break;
+		case SDLValue.Kind.int_:
+			dst.formattedWrite("%s", value.intValue);
+			break;
+		case SDLValue.Kind.long_:
+			dst.formattedWrite("%sL", value.longValue);
+			break;
+		case SDLValue.Kind.decimal:
+			assert(false);
+		case SDLValue.Kind.float_:
+			dst.writeFloat(value.floatValue);
+			dst.put('f');
+			break;
+		case SDLValue.Kind.double_:
+			dst.writeFloat(value.doubleValue);
+			break;
+		case SDLValue.Kind.bool_:
+			dst.put(value.boolValue ? "true" : "false");
+			break;
+		case SDLValue.Kind.dateTime:
+			auto dt = cast(DateTime)value.dateTimeValue;
+			auto fracsec = value.dateTimeValue.fracSecs;
 			dst.formattedWrite("%d/%02d/%02d %02d:%02d:%02d",
 				dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
 			dst.writeFracSecs(fracsec.total!"hnsecs");
 
-			if (v.timezone is LocalTime()) {}
-			else if (v.timezone is UTC()) dst.put("-UTC");
-			else if (auto sz = cast(immutable(SimpleTimeZone))v.timezone) {
+			auto tz = value.dateTimeValue.timezone;
+
+			if (tz is LocalTime()) {}
+			else if (tz is UTC()) dst.put("-UTC");
+			else if (auto sz = cast(immutable(SimpleTimeZone))tz) {
 				long hours, minutes;
 				sz.utcOffset.split!("hours", "minutes")(hours, minutes);
 				if (hours < 0 || minutes < 0)
 					dst.formattedWrite("-GMT-%02d:%02d", -hours, -minutes); // NOTE: should really be UTC, but we are following the spec here
 				else dst.formattedWrite("-GMT+%02d:%02d", hours, minutes);
-			} else dst.formattedWrite("-%s", v.timezone.stdName); // Q: should this be name instead (e.g. CEST vs. CET)
-		},
-		(Date v) { dst.formattedWrite("%d/%02d/%02d", v.year, v.month, v.day); },
-		(Duration v) {
+			} else {
+				auto offset = tz.utcOffsetAt(value.dateTimeValue.stdTime);
+				long hours, minutes;
+				offset.split!("hours", "minutes")(hours, minutes);
+				if (hours < 0 || minutes < 0)
+					dst.formattedWrite("-GMT-%02d:%02d", -hours, -minutes); // NOTE: should really be UTC, but we are following the spec here
+				else dst.formattedWrite("-GMT+%02d:%02d", hours, minutes);
+				//dst.formattedWrite("-%s", tz.stdName); // Q: should this be name instead (e.g. CEST vs. CET)
+			}
+			break;
+		case SDLValue.Kind.date:
+			auto d = value.dateValue;
+			dst.formattedWrite("%d/%02d/%02d", d.year, d.month, d.day);
+			break;
+		case SDLValue.Kind.duration:
 			long days, hours, minutes, seconds, hnsecs;
-			v.split!("days", "hours", "minutes", "seconds", "hnsecs")
+			value.durationValue.split!("days", "hours", "minutes", "seconds", "hnsecs")
 				(days, hours, minutes, seconds, hnsecs);
 			if (days > 0) dst.formattedWrite("%sd:", days);
 			dst.formattedWrite("%02d:%02d", hours, minutes);
@@ -116,8 +154,8 @@ void generateSDLang(R)(ref R dst, in auto ref SDLValue value)
 				dst.formattedWrite(":%02d", seconds);
 				dst.writeFracSecs(hnsecs);
 			}
-		}
-	);
+			break;
+	}
 }
 
 unittest {
@@ -295,5 +333,5 @@ private void generateBase64(R)(ref R dst, in ubyte[] bytes)
 {
 	import std.base64 : Base64;
 
-	Base64.encode(bytes[], dst);
+	Base64.encode(bytes, dst);
 }

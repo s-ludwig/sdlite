@@ -226,7 +226,7 @@ private void putIndentation(R)(ref R dst, size_t level)
 
 // output a floating point number in pure decimal format, without losing
 // precision (at least approximately) and without redundant zeros
-private void writeFloat(R, F)(ref R dst, F num)
+private void writeFloat(R, F)(ref R dst, const(F) num)
 {
 	import std.format : formattedWrite;
 	import std.math : floor, fmod, isNaN, log10;
@@ -246,18 +246,19 @@ private void writeFloat(R, F)(ref R dst, F num)
 
 	if (fmod(num, F(1)) == 0) dst.formattedWrite("%.1f", num);
 	else {
+		F unum;
 		if (num < 0) {
 			dst.put('-');
-			num = -num;
-		}
+			unum = -num;
+		} else unum = num;
 
-		auto firstdig = cast(long)floor(log10(num));
-		if (firstdig >= sig) dst.formattedWrite("%.1f", num);
+		auto firstdig = cast(long)floor(log10(unum));
+		if (firstdig >= sig) dst.formattedWrite("%.1f", unum);
 		else {
 			char[32] fmt;
 			char[] fmtdst = fmt[];
 			fmtdst.formattedWrite("%%.%sg", sig - firstdig);
-			dst.formattedWrite(fmt[0 .. $-fmtdst.length], num);
+			dst.formattedWrite(fmt[0 .. $-fmtdst.length], unum);
 		}
 	}
 }

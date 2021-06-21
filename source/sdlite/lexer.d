@@ -750,7 +750,7 @@ private struct SDLangLexer(R)
 	{
 		foreach (i; 0 .. 3) {
 			auto ch = m_input.front;
-			if (ch < 'A' && ch > 'Z') return false;
+			if (ch < 'A' || ch > 'Z') return false;
 			skipChar!false();
 		}
 
@@ -866,6 +866,7 @@ unittest { // single token tests
 	test("2015/12/06 12:00:00-GMT+0:31", TokenType.dateTime, "2015/12/06 12:00:00-GMT+0:31", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), new immutable SimpleTimeZone(31.minutes))));
 	test("2015/12/06 ", TokenType.date, "2015/12/06", SDLValue.date(Date(2015, 12, 6)));
 	test("2017/11/22 18:00-GMT+00:00", TokenType.dateTime, "2017/11/22 18:00-GMT+00:00", SDLValue.dateTime(SysTime(DateTime(2017, 11, 22, 18, 0, 0), new immutable SimpleTimeZone(0.hours))));
+	test("2017/11/22 18:00-gmt+00:00", TokenType.invalid, "2017/11/22 18:00-", SDLValue.null_, "", true);
 
 	test(" {", TokenType.blockOpen, "{", SDLValue.null_, " ");
 	test("\t {", TokenType.blockOpen, "{", SDLValue.null_, "\t ");

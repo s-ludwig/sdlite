@@ -653,11 +653,25 @@ private struct SDLangLexer(R)
 
 	private Take!R skipWhitespace()
 	{
+		import std.algorithm.searching : startsWith;
+
 		size_t n = 0;
 		auto ret = m_input.save;
-		while (!m_input.empty && m_input.front.among!(' ', '\t')) {
-			skipChar!false();
-			n++;
+		while (!m_input.empty) {
+			if (m_input.front.among!(' ', '\t')) {
+				skipChar!false();
+				n++;
+			} else if (m_input.front == '\\') {
+				if (m_input.save.startsWith("\\\n")) {
+					skipChar!false();
+					skipChar!true();
+					n += 2;
+				} else if (m_input.save.startsWith("\\\r\n")) {
+					skipChar!false();
+					skipChar!true();
+					n += 3;
+				} else break;
+			} else break;
 		}
 		return ret.take(n);
 	}
@@ -871,4 +885,7 @@ unittest { // single token tests
 	test(" {", TokenType.blockOpen, "{", SDLValue.null_, " ");
 	test("\t {", TokenType.blockOpen, "{", SDLValue.null_, "\t ");
 	test("0.5\n", TokenType.number, "0.5", SDLValue(0.5), "", true);
+
+	test("\\\n {", TokenType.blockOpen, "{", SDLValue.null_, "\\\n ");
+	test(" \\\r\n {", TokenType.blockOpen, "{", SDLValue.null_, " \\\r\n ");
 }

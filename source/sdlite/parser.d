@@ -10,7 +10,8 @@ void parseSDLDocument(alias NodeHandler, R)(R input, string filename)
 	import std.algorithm.iteration : filter;
 
 	auto tokens = lexSDLang(input, filename)
-		.filter!(t => t.type != TokenType.comment);
+		.filter!(t => t.type != TokenType.comment)
+		.backslashSkipper;
 
 	ParserContext ctx;
 
@@ -21,6 +22,44 @@ void parseSDLDocument(alias NodeHandler, R)(R input, string filename)
 			throw new Exception("Expected end of file");
 		tokens.popFront();
 	}
+}
+
+private auto backslashSkipper(T)(auto ref scope return T range)
+{
+	static struct Ret
+	{
+		T range;
+
+		ref auto front() @property
+		{
+			return range.front;
+		}
+		
+		bool empty() @property
+		{
+			return range.empty;
+		}
+		
+		void popFront()
+		{
+			range.popFront();
+			if (!range.empty && range.front.type == TokenType.backslash)
+			{
+				range.popFront();
+				if (!range.empty && range.front.type == TokenType.eol)
+					range.popFront();
+				else
+					throw new Exception("Expected EOL after backslash");
+			}
+		}
+		
+		typeof(this) save()
+		{
+			return this;
+		}
+	}
+
+	return Ret(range);
 }
 
 unittest {
@@ -36,12 +75,12 @@ unittest {
 	test("foo:bar", [SDLNode("foo:bar")]);
 	test("foo 123", [SDLNode("foo",
 		[SDLValue.int_(123)])]);
-	test("foo null\nbar", [SDLNode("foo", [SDLValue.null_]), SDLNode("bar")]);
+	test("foo \\\nnull\nbar", [SDLNode("foo", [SDLValue.null_]), SDLNode("bar")]);
 	test("foo null;bar", [SDLNode("foo", [SDLValue.null_]), SDLNode("bar")]);
 	test("foo {\n}\n\nbar", [SDLNode("foo"), SDLNode("bar")]);
 	test("foo bar=123", [SDLNode("foo", null,
 		[SDLAttribute("bar", SDLValue.int_(123))])]);
-	test("foo 42 bar=123", [SDLNode("foo",
+	test("foo\\\n\t42\\\n\tbar=123", [SDLNode("foo",
 		[SDLValue.int_(42)],
 		[SDLAttribute("bar", SDLValue.int_(123))])]);
 	test("foo {\nbar\n}", [SDLNode("foo", null, null, [SDLNode("bar")])]);

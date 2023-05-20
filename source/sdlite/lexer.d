@@ -39,7 +39,8 @@ enum TokenType {
 	boolean,
 	dateTime,
 	date,
-	duration
+	duration,
+	backslash,
 }
 
 struct Location {
@@ -92,6 +93,7 @@ package SDLValue parseValue(R)(ref Token!R t,
 		case TokenType.semicolon:
 		case TokenType.comment:
 		case TokenType.identifier:
+		case TokenType.backslash:
 			 return SDLValue.null_;
 		case TokenType.null_:
 			 return SDLValue.null_;
@@ -502,6 +504,7 @@ private struct SDLangLexer(R)
 			case ';': skipChar!false(); return TokenType.semicolon;
 			case '=': skipChar!false(); return TokenType.assign;
 			case ':': skipChar!false(); return TokenType.namespace;
+			case '\\': skipChar!false(); return TokenType.backslash;
 			case '0': .. case '9': // number or date/time
 				return skipNumericToken();
 			default: // identifier
@@ -653,25 +656,11 @@ private struct SDLangLexer(R)
 
 	private Take!R skipWhitespace()
 	{
-		import std.algorithm.searching : startsWith;
-
 		size_t n = 0;
 		auto ret = m_input.save;
-		while (!m_input.empty) {
-			if (m_input.front.among!(' ', '\t')) {
-				skipChar!false();
-				n++;
-			} else if (m_input.front == '\\') {
-				if (m_input.save.startsWith("\\\n")) {
-					skipChar!false();
-					skipChar!true();
-					n += 2;
-				} else if (m_input.save.startsWith("\\\r\n")) {
-					skipChar!false();
-					skipChar!true();
-					n += 3;
-				} else break;
-			} else break;
+		while (!m_input.empty && m_input.front.among!(' ', '\t')) {
+			skipChar!false();
+			n++;
 		}
 		return ret.take(n);
 	}
@@ -844,7 +833,7 @@ unittest { // single token tests
 	test("null_", TokenType.identifier, "null_");
 	test("-", TokenType.invalid, "-");
 	test("%", TokenType.invalid, "%");
-	test("\\", TokenType.invalid, "\\");
+	test("\\", TokenType.backslash, "\\");
 	//test("\\\n", TokenType.eof, "\\\n");
 	test("`foo`", TokenType.text, "`foo`", SDLValue.text("foo"));
 	test("`fo\\\"o`", TokenType.text, "`fo\\\"o`", SDLValue.text("fo\\\"o"));
@@ -885,7 +874,4 @@ unittest { // single token tests
 	test(" {", TokenType.blockOpen, "{", SDLValue.null_, " ");
 	test("\t {", TokenType.blockOpen, "{", SDLValue.null_, "\t ");
 	test("0.5\n", TokenType.number, "0.5", SDLValue(0.5), "", true);
-
-	test("\\\n {", TokenType.blockOpen, "{", SDLValue.null_, "\\\n ");
-	test(" \\\r\n {", TokenType.blockOpen, "{", SDLValue.null_, " \\\r\n ");
 }

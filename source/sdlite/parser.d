@@ -86,10 +86,11 @@ private void parseNodes(alias NodeHandler, R)(ref R tokens, ref ParserContext ct
 		tokens.popFront();
 
 	while (!tokens.empty && !tokens.front.type.among(TokenType.eof, TokenType.blockClose)) {
-		auto n = tokens.parseNode(ctx, depth);
+		bool nested;
+		auto n = tokens.parseNode(ctx, depth, nested);
 		NodeHandler(n);
 
-		if (!tokens.empty && !tokens.front.type.among(TokenType.eol, TokenType.semicolon, TokenType.eof))
+		if (!nested && !tokens.empty && !tokens.front.type.among(TokenType.eol, TokenType.semicolon, TokenType.eof))
 			throwUnexpectedToken(tokens.front, "end of node");
 
 		while (!tokens.empty && tokens.front.type.among(TokenType.eol, TokenType.semicolon))
@@ -97,7 +98,7 @@ private void parseNodes(alias NodeHandler, R)(ref R tokens, ref ParserContext ct
 	}
 }
 
-private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth)
+private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth, out bool is_nested)
 {
 	SDLNode ret;
 
@@ -117,6 +118,7 @@ private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth)
 	ret.attributes = tokens.parseAttributes(ctx);
 
 	if (!tokens.empty && tokens.front.type == TokenType.blockOpen) {
+		is_nested = true;
 		tokens.popFront();
 		tokens.skipToken(TokenType.eol);
 
@@ -212,12 +214,21 @@ private string parseQualifiedName(R)(ref R tokens, bool required, ref ParserCont
 
 private void skipToken(R)(ref R tokens, scope TokenType[] allowed_types...)
 {
+	import std.algorithm.iteration : map;
 	import std.algorithm.searching : canFind;
 	import std.format : format;
 
 	if (tokens.empty) throw new SDLParserException(tokens.front, "Unexpected end of file");
-	if (!allowed_types.canFind(tokens.front.type))
-		throw new SDLParserException(tokens.front, format("Unexpected %s, expected any of %s", stringRepresentation(tokens.front), allowed_types));
+	if (!allowed_types.canFind(tokens.front.type)) {
+		string msg = allowed_types.length == 1
+			? format("Unexpected %s, expected %s",
+				stringRepresentation(tokens.front),
+				stringRepresentation(allowed_types[0]))
+			: format("Unexpected %s, expected any of %(%s/%)",
+				stringRepresentation(tokens.front),
+				allowed_types.map!(t => stringRepresentation(t)));
+		throw new SDLParserException(tokens.front, msg);
+	}
 
 	tokens.popFront();
 }
@@ -231,8 +242,19 @@ private string stringRepresentation(R)(ref Token!R t)
 @safe {
 	import std.conv : to;
 
-	final switch (t.type) with (TokenType) {
+	switch (t.type) with (TokenType) {
 		case invalid: return "malformed token '" ~ t.text.to!string ~ "'";
+		case identifier: return "identifier '"~t.text.to!string~"'";
+		default: return stringRepresentation(t.type);
+	}
+}
+
+private string stringRepresentation(TokenType tp)
+@safe {
+	import std.conv : to;
+
+	final switch (tp) with (TokenType) {
+		case invalid: return "malformed token";
 		case eof: return "end of file";
 		case eol: return "end of line";
 		case assign: return "'='";
@@ -241,7 +263,7 @@ private string stringRepresentation(R)(ref Token!R t)
 		case blockClose: return "'}'";
 		case semicolon: return "';'";
 		case comment: return "comment";
-		case identifier: return "identifier '"~t.text.to!string~"'";
+		case identifier: return "identifier";
 		case null_: return "'null'";
 		case text: return "string";
 		case binary: return "binary data";
@@ -263,13 +285,15 @@ private struct ParserContext {
 
 
 unittest {
-	void test(string code, string error, int line = __LINE__)
+	void test(string code, string error, int line = 1)
 	{
+		import std.format : format;
+		auto msg = format("foo.sdl:%s: %s", line, error);
 		try {
 			parseSDLDocument!((n) {})(code, "foo.sdl");
 			assert(false, "Expected parsing to fail");
 		}
-		catch (SDLParserException ex) assert(ex.msg == "foo.sdl:1: " ~ error, ">"~ex.msg~"< >"~"foo.sdl:1: " ~ error~"<");
+		catch (SDLParserException ex) assert(ex.msg == msg, ">"~ex.msg~"< >"~msg~"<");
 		catch (Exception e) assert(false, "Unexpected exception type");
 	}
 
@@ -281,4 +305,6 @@ unittest {
 	test("foo:\n", "Unexpected end of line, expected identifier");
 	test(":", "Unexpected ':', expected values for anonymous node");
 	test("{\n}", "Unexpected '{', expected values for anonymous node");
+	test(" foo {\n}:", "Unexpected ':', expected end of line", 2);
+	test(" foo {\n}\n:", "Unexpected ':', expected values for anonymous node", 3);
 }

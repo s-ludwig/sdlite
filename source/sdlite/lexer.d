@@ -12,44 +12,65 @@ import std.utf : byCodeUnit, decodeFront;
 import core.time : Duration, days, hours, minutes, seconds, msecs, hnsecs;
 
 
+/** Represents a single token within an SDL document.
+*/
 struct Token(R) {
 	alias SourceRange = R;
 
+	/** Token type.
+	*/
 	TokenType type;
+
+	/** Location of the token within the source document.
+	*/
 	Location location;
+
+	/** Contains any white space precedes the token.
+
+		Note that this will also include any line continuations between tokens.
+		The characters that can occur are spaces, tabs, newlines,
+		carriage returns, as well as the backslash character.
+	*/
 	Take!R whitespacePrefix;
+
+	/** Raw string representation of the token.
+
+		Note that certain token types, such as strings, base64 data and
+		date/time values will have to be parsed using `parseValue` in order to
+		be semantically usable.
+	*/
 	Take!R text;
 }
 
 enum TokenType {
-	invalid,
-	eof,
-	eol,
-	assign,
-	namespace,
-	blockOpen,
-	blockClose,
-	semicolon,
-	comment,
-	identifier,
-	null_,
-	text,
-	binary,
-	number,
-	boolean,
-	dateTime,
-	date,
-	duration
+	invalid,    /// Malformed token
+	eof,        /// Denotes the end of the document
+	eol,        /// Line break
+	assign,     /// Equal sign
+	namespace,  /// Colon, used to separate namespace from name
+	blockOpen,  /// Opening brace
+	blockClose, /// Closing brace
+	semicolon,  /// Semicolon
+	comment,    /// Any kind of comment
+	identifier, /// A single identifier
+	null_,      /// The null keyword
+	text,       /// Any string value
+	binary,     /// Base-64 encoded binary data value
+	number,     /// Any kind of number value
+	boolean,    /// 'true' or 'false'
+	dateTime,   /// Date/time value
+	date,       /// Date value
+	duration    /// Duration value
 }
 
 struct Location {
 	/// Name of the source file
 	string file;
-	/// Line within the file (Unix/Windows/Mac line endings are recognized)
+	/// Line number within the file (Unix/Windows/Mac line endings are recognized, zero based)
 	size_t line;
-	/// Byte offset from the start of the line
+	/// Code unit offset from the start of the line
 	size_t column;
-	/// Byte offset from the start of the input string
+	/// Code unit offset from the start of the input string
 	size_t offset;
 }
 

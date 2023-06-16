@@ -18,7 +18,7 @@ void parseSDLDocument(alias NodeHandler, R)(R input, string filename)
 
 	while (!tokens.empty) {
 		if (!tokens.front.type.among(TokenType.eof, TokenType.comment))
-			throw new Exception("Expected end of file");
+			throw new SDLParserException(tokens.front, "Expected end of file");
 		tokens.popFront();
 	}
 }
@@ -48,6 +48,36 @@ unittest {
 	test("\nfoo", [SDLNode("foo")]);
 }
 
+final class SDLParserException : Exception {
+	private {
+		Location m_location;
+		string m_error;
+	}
+
+	nothrow:
+
+	this(R)(ref Token!R token, string error, string file = __FILE__, int line = __LINE__, Throwable next_in_chain = null)
+	{
+		this(token.location, error, file, line, next_in_chain);
+	}
+
+	this(Location location, string error, string file = __FILE__, int line = __LINE__, Throwable next_in_chain = null)
+	{
+		import std.exception : assumeWontThrow;
+		import std.format : format;
+
+		string msg = format("%s:%s: %s", location.file, location.line+1, error).assumeWontThrow;
+
+		super(msg, file, line, next_in_chain);
+
+		m_location = location;
+		m_error = error;
+	}
+
+	@property string error() const { return m_error; }
+	@property Location location() const { return m_location; }
+}
+
 private void parseNodes(alias NodeHandler, R)(ref R tokens, ref ParserContext ctx, size_t depth)
 {
 	import std.algorithm.comparison : among;
@@ -58,6 +88,9 @@ private void parseNodes(alias NodeHandler, R)(ref R tokens, ref ParserContext ct
 	while (!tokens.empty && !tokens.front.type.among(TokenType.eof, TokenType.blockClose)) {
 		auto n = tokens.parseNode(ctx, depth);
 		NodeHandler(n);
+
+		if (!tokens.empty && !tokens.front.type.among(TokenType.eol, TokenType.semicolon, TokenType.eof))
+			throwUnexpectedToken(tokens.front, "end of node");
 
 		while (!tokens.empty && tokens.front.type.among(TokenType.eol, TokenType.semicolon))
 			tokens.popFront();
@@ -80,7 +113,7 @@ private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth)
 	ret.values = tokens.parseValues(ctx);
 	import std.conv;
 	if (require_parameters && ret.values.length == 0)
-		throw new Exception("Expected values for anonymous node"~tokens.front.to!string);
+		throwUnexpectedToken(tokens.front, "values for anonymous node");
 	ret.attributes = tokens.parseAttributes(ctx);
 
 	if (!tokens.empty && tokens.front.type == TokenType.blockOpen) {
@@ -93,7 +126,7 @@ private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth)
 		ret.children = ctx.nodeAppender[depth].extractArray;
 
 		if (tokens.empty || tokens.front.type != TokenType.blockClose)
-			throw new Exception("Expected }");
+			throwUnexpectedToken(tokens.front, "'}'");
 
 		tokens.popFront();
 		if (!tokens.empty && tokens.front.type != TokenType.eof)
@@ -110,7 +143,7 @@ private SDLAttribute[] parseAttributes(R)(ref R tokens, ref ParserContext ctx)
 		att.qualifiedName = tokens.parseQualifiedName(true, ctx);
 		tokens.skipToken(TokenType.assign);
 		if (!tokens.parseValue(att.value, ctx))
-			throw new Exception("Expected attribute value");
+			throwUnexpectedToken(tokens.front, "attribute value");
 		ctx.attributeAppender.put(att);
 	}
 
@@ -155,7 +188,7 @@ private string parseQualifiedName(R)(ref R tokens, bool required, ref ParserCont
 	import std.utf : byCodeUnit;
 
 	if (tokens.front.type != TokenType.identifier) {
-		if (required) throw new Exception("Expected identifier");
+		if (required) throwUnexpectedToken(tokens.front, "identifier");
 		else return null;
 	}
 
@@ -166,7 +199,7 @@ private string parseQualifiedName(R)(ref R tokens, bool required, ref ParserCont
 	if (!tokens.empty && tokens.front.type == TokenType.namespace) {
 		tokens.popFront();
 		if (tokens.empty || tokens.front.type != TokenType.identifier)
-			throw new Exception("Expected identifier");
+			throwUnexpectedToken(tokens.front, "identifier");
 
 		ctx.charAppender.put(':');
 		foreach (ch; tokens.front.text)
@@ -182,11 +215,42 @@ private void skipToken(R)(ref R tokens, scope TokenType[] allowed_types...)
 	import std.algorithm.searching : canFind;
 	import std.format : format;
 
-	if (tokens.empty) throw new Exception("Unexpected end of file");
+	if (tokens.empty) throw new SDLParserException(tokens.front, "Unexpected end of file");
 	if (!allowed_types.canFind(tokens.front.type))
-		throw new Exception(format("Unexpected token at line %s, %s, expected any of %s", tokens.front.location.line+1, tokens.front.type, allowed_types));
+		throw new SDLParserException(tokens.front, format("Unexpected %s, expected any of %s", stringRepresentation(tokens.front), allowed_types));
 
 	tokens.popFront();
+}
+
+private void throwUnexpectedToken(R)(ref Token!R t, string expected)
+{
+	throw new SDLParserException(t, "Unexpected " ~ stringRepresentation(t) ~ ", expected " ~ expected);
+}
+
+private string stringRepresentation(R)(ref Token!R t)
+@safe {
+	import std.conv : to;
+
+	final switch (t.type) with (TokenType) {
+		case invalid: return "malformed token '" ~ t.text.to!string ~ "'";
+		case eof: return "end of file";
+		case eol: return "end of line";
+		case assign: return "'='";
+		case namespace: return "':'";
+		case blockOpen: return "'{'";
+		case blockClose: return "'}'";
+		case semicolon: return "';'";
+		case comment: return "comment";
+		case identifier: return "identifier '"~t.text.to!string~"'";
+		case null_: return "'null'";
+		case text: return "string";
+		case binary: return "binary data";
+		case number: return "number";
+		case boolean: return "Boolean value";
+		case dateTime: return "date/time value";
+		case date: return "date value";
+		case duration: return "duration value";
+	}
 }
 
 private struct ParserContext {
@@ -195,4 +259,26 @@ private struct ParserContext {
 	MultiAppender!(immutable(char)) charAppender;
 	MultiAppender!(immutable(ubyte)) bytesAppender;
 	MultiAppender!SDLNode[] nodeAppender; // one for each recursion depth
+}
+
+
+unittest {
+	void test(string code, string error, int line = __LINE__)
+	{
+		try {
+			parseSDLDocument!((n) {})(code, "foo.sdl");
+			assert(false, "Expected parsing to fail");
+		}
+		catch (SDLParserException ex) assert(ex.msg == "foo.sdl:1: " ~ error, ">"~ex.msg~"< >"~"foo.sdl:1: " ~ error~"<");
+		catch (Exception e) assert(false, "Unexpected exception type");
+	}
+
+	test("foo=bar", "Unexpected '=', expected end of node");
+	test("foo bar=15/34/x", "Unexpected malformed token '15/34/', expected attribute value");
+	test("foo bar=baz", "Unexpected identifier 'baz', expected attribute value");
+	test("foo \"bar\" \\ \"bar\"", "Unexpected malformed token '\\', expected end of node");
+	test("foo:", "Unexpected end of file, expected identifier");
+	test("foo:\n", "Unexpected end of line, expected identifier");
+	test(":", "Unexpected ':', expected values for anonymous node");
+	test("{\n}", "Unexpected '{', expected values for anonymous node");
 }

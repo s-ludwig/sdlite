@@ -47,6 +47,8 @@ unittest {
 	test("foo {\nbar\n}", [SDLNode("foo", null, null, [SDLNode("bar")])]);
 	test("foo {\nbar\n}\nbaz", [SDLNode("foo", null, null, [SDLNode("bar")]), SDLNode("baz")]);
 	test("\nfoo", [SDLNode("foo")]);
+	test("foo (1 2 3)", [SDLNode("foo", [SDLValue.array([SDLValue.int_(1), SDLValue.int_(2), SDLValue.int_(3)])])]);
+	test("foo (1 (2 3) 4)", [SDLNode("foo", [SDLValue.array([SDLValue.int_(1), SDLValue.array([SDLValue.int_(2), SDLValue.int_(3)]), SDLValue.int_(4)])])]);
 }
 
 final class SDLParserException : Exception {
@@ -180,6 +182,11 @@ private bool parseValue(R)(ref R tokens, ref SDLValue dst, ref ParserContext ctx
 			dst = sdlite.lexer.parseValue!(typeof(tokens.front).SourceRange)(tokens.front, ctx.charAppender, ctx.bytesAppender);
 			tokens.popFront();
 			return true;
+		case TokenType.arrayOpen:
+			tokens.skipToken(TokenType.arrayOpen);
+			dst = SDLValue.array(tokens.parseValues(ctx));
+			tokens.skipToken(TokenType.arrayClose);
+			return true;
 	}
 }
 
@@ -262,6 +269,8 @@ private string stringRepresentation(TokenType tp)
 		case namespace: return "':'";
 		case blockOpen: return "'{'";
 		case blockClose: return "'}'";
+		case arrayOpen: return "'('";
+		case arrayClose: return "')'";
 		case semicolon: return "';'";
 		case comment: return "comment";
 		case identifier: return "identifier";

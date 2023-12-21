@@ -50,6 +50,8 @@ enum TokenType {
 	namespace,  /// Colon, used to separate namespace from name
 	blockOpen,  /// Opening brace
 	blockClose, /// Closing brace
+	arrayOpen,	/// Opening array brace
+	arrayClose,	/// Closing array brace
 	semicolon,  /// Semicolon
 	comment,    /// Any kind of comment
 	identifier, /// A single identifier
@@ -113,6 +115,8 @@ package SDLValue parseValue(R)(ref Token!R t,
 		case TokenType.semicolon:
 		case TokenType.comment:
 		case TokenType.identifier:
+		case TokenType.arrayOpen:
+		case TokenType.arrayClose:
 			 return SDLValue.null_;
 		case TokenType.null_:
 			 return SDLValue.null_;
@@ -520,6 +524,8 @@ private struct SDLangLexer(R)
 				return TokenType.invalid;
 			case '{': skipChar!false(); return TokenType.blockOpen;
 			case '}': skipChar!false(); return TokenType.blockClose;
+			case '(': skipChar!false(); return TokenType.arrayOpen;
+			case ')': skipChar!false(); return TokenType.arrayClose;
 			case ';': skipChar!false(); return TokenType.semicolon;
 			case '=': skipChar!false(); return TokenType.assign;
 			case ':': skipChar!false(); return TokenType.namespace;
@@ -863,6 +869,8 @@ unittest { // single token tests
 	test("true_", TokenType.identifier, "true_");
 	test("false_", TokenType.identifier, "false_");
 	test("null_", TokenType.identifier, "null_");
+	test("(", TokenType.arrayOpen, "(");
+	test(")", TokenType.arrayClose, ")");
 	test("-", TokenType.invalid, "-");
 	test("%", TokenType.invalid, "%");
 	test("\\", TokenType.invalid, "\\");

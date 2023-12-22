@@ -144,4 +144,5 @@ struct SDLValueFields {
 	SysTime dateTime;
 	Date date;
 	Duration duration;
+	const(SDLValue)[] array;
 }

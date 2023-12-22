@@ -155,6 +155,11 @@ void generateSDLang(R)(ref R dst, auto ref const(SDLValue) value)
 				dst.writeFracSecs(hnsecs);
 			}
 			break;
+		case SDLValue.Kind.array:
+			dst.put('(');
+			dst.generateSDLang(value.arrayValue);
+			dst.put(')');
+			break;
 	}
 }
 
@@ -190,6 +195,8 @@ unittest {
 	test(SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), new immutable SimpleTimeZone(-2.hours - 30.minutes))), "2015/12/06 12:00:00-GMT-02:30");
 	test(SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), new immutable SimpleTimeZone(31.minutes))), "2015/12/06 12:00:00-GMT+00:31");
 	test(SDLValue.dateTime(SysTime(DateTime(2017, 11, 22, 18, 0, 0), new immutable SimpleTimeZone(0.hours))), "2017/11/22 18:00:00-GMT+00:00");
+	test(SDLValue.array([SDLValue.int_(1), SDLValue.int_(2), SDLValue.int_(3)]), "(1 2 3)");
+	test(SDLValue.array([SDLValue.array([SDLValue.int_(1), SDLValue.int_(2), SDLValue.int_(3)]), SDLValue.int_(4)]), "((1 2 3) 4)");
 }
 
 

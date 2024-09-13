@@ -105,6 +105,7 @@ private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth, 
 
 	bool require_parameters = false;
 
+	ret.location = tokens.front.location;
 	auto n = tokens.parseQualifiedName(false, ctx);
 	if (n is null) {
 		n = "content";

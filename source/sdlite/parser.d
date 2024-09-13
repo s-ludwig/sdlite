@@ -24,10 +24,18 @@ void parseSDLDocument(alias NodeHandler, R)(R input, string filename)
 }
 
 unittest {
+	void clearloc(SDLNode[] nodes) {
+		foreach (ref n; nodes) {
+			n.location = Location.init;
+			clearloc(n.children);
+		}
+	}
+
 	void test(string sdl, SDLNode[] expected)
 	{
 		SDLNode[] result;
 		parseSDLDocument!((n) { result ~= n; })(sdl, "test");
+		clearloc(result); // ignore location field for the comparison
 		import std.conv : to;
 		assert(result == expected, result.to!string);
 	}
@@ -105,6 +113,7 @@ private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth, 
 
 	bool require_parameters = false;
 
+	ret.location = tokens.front.location;
 	auto n = tokens.parseQualifiedName(false, ctx);
 	if (n is null) {
 		n = "content";

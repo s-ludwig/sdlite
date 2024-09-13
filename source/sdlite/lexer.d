@@ -1,6 +1,6 @@
 module sdlite.lexer;
 
-import sdlite.ast : SDLValue;
+import sdlite.ast : Location, SDLValue;
 import sdlite.internal : MultiAppender;
 
 import std.algorithm.comparison : among;
@@ -61,17 +61,6 @@ enum TokenType {
 	dateTime,   /// Date/time value
 	date,       /// Date value
 	duration    /// Duration value
-}
-
-struct Location {
-	/// Name of the source file
-	string file;
-	/// Line number within the file (Unix/Windows/Mac line endings are recognized, zero based)
-	size_t line;
-	/// Code unit offset from the start of the line
-	size_t column;
-	/// Code unit offset from the start of the input string
-	size_t offset;
 }
 
 

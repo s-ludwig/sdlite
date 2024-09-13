@@ -32,6 +32,7 @@ struct SDLNode {
 	SDLValue[] values;
 	SDLAttribute[] attributes;
 	SDLNode[] children;
+	Location location;
 
 	this(string qualified_name, SDLValue[] values = null,
 		SDLAttribute[] attributes = null, SDLNode[] children = null)
@@ -144,4 +145,15 @@ struct SDLValueFields {
 	SysTime dateTime;
 	Date date;
 	Duration duration;
+}
+
+struct Location {
+	/// Name of the source file
+	string file;
+	/// Line number within the file (Unix/Windows/Mac line endings are recognized, zero based)
+	size_t line;
+	/// Code unit offset from the start of the line
+	size_t column;
+	/// Code unit offset from the start of the input string
+	size_t offset;
 }

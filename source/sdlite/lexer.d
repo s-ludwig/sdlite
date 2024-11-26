@@ -393,7 +393,7 @@ private struct SDLangLexer(R)
 				}
 				if (m_input.front == '/') {
 					skipChar!false();
-					skipLine();
+					skipLine(false);
 
 					return TokenType.comment;
 				}
@@ -698,11 +698,11 @@ private struct SDLangLexer(R)
 		return s.length == 0;
 	}
 
-	private void skipLine()
+	private void skipLine(bool skip_newline_char = true)
 	{
 		while (!m_input.empty && !m_input.front.among!('\r', '\n'))
 			skipChar!false();
-		if (!m_input.empty) skipChar!true();
+		if (!m_input.empty && skip_newline_char) skipChar!true();
 	}
 
 	private void skipChar(bool could_be_eol)()

@@ -55,6 +55,7 @@ unittest {
 	test("foo {\nbar\n}", [SDLNode("foo", null, null, [SDLNode("bar")])]);
 	test("foo {\nbar\n}\nbaz", [SDLNode("foo", null, null, [SDLNode("bar")]), SDLNode("baz")]);
 	test("\nfoo", [SDLNode("foo")]);
+	test("foo //\nbar", [SDLNode("foo"), SDLNode("bar")]);
 }
 
 final class SDLParserException : Exception {

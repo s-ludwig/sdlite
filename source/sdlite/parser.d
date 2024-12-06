@@ -23,7 +23,7 @@ void parseSDLDocument(alias NodeHandler, R)(R input, string filename)
 	}
 }
 
-unittest {
+@safe unittest {
 	void clearloc(SDLNode[] nodes) {
 		foreach (ref n; nodes) {
 			n.location = Location.init;
@@ -32,12 +32,12 @@ unittest {
 	}
 
 	void test(string sdl, SDLNode[] expected)
-	{
+	@safe {
 		SDLNode[] result;
 		parseSDLDocument!((n) { result ~= n; })(sdl, "test");
 		clearloc(result); // ignore location field for the comparison
 		import std.conv : to;
-		assert(result == expected, result.to!string);
+		assert(result == expected, () @trusted { return result.to!string; } ());
 	}
 
 	test("foo", [SDLNode("foo")]);
@@ -64,13 +64,14 @@ final class SDLParserException : Exception {
 		string m_error;
 	}
 
-	nothrow:
+nothrow:
 
 	this(R)(ref Token!R token, string error, string file = __FILE__, int line = __LINE__, Throwable next_in_chain = null)
 	{
 		this(token.location, error, file, line, next_in_chain);
 	}
 
+@safe:
 	this(Location location, string error, string file = __FILE__, int line = __LINE__, Throwable next_in_chain = null)
 	{
 		import std.exception : assumeWontThrow;
@@ -97,7 +98,9 @@ private void parseNodes(alias NodeHandler, R)(ref R tokens, ref ParserContext ct
 
 	while (!tokens.empty && !tokens.front.type.among(TokenType.eof, TokenType.blockClose)) {
 		bool nested;
-		auto n = tokens.parseNode(ctx, depth, nested);
+		// NOTE: we need to use @trusted here, because due to the recursive
+		//       call to parseNodes, the compiler fails to infer @safe
+		auto n = () @trusted { return tokens.parseNode(ctx, depth, nested); } ();
 		NodeHandler(n);
 
 		if (!nested && !tokens.empty && !tokens.front.type.among(TokenType.eol, TokenType.semicolon, TokenType.eof))
@@ -135,7 +138,7 @@ private SDLNode parseNode(R)(ref R tokens, ref ParserContext ctx, size_t depth, 
 
 		if (ctx.nodeAppender.length <= depth)
 			ctx.nodeAppender.length = depth+1;
-		tokens.parseNodes!((ref n) { ctx.nodeAppender[depth].put(n); })(ctx, depth+1);
+		tokens.parseNodes!((ref n) @safe { ctx.nodeAppender[depth].put(n); })(ctx, depth+1);
 		ret.children = ctx.nodeAppender[depth].extractArray;
 
 		if (tokens.empty || tokens.front.type != TokenType.blockClose)
@@ -295,7 +298,7 @@ private struct ParserContext {
 }
 
 
-unittest {
+@safe unittest {
 	void test(string code, string error, int line = 1)
 	{
 		import std.format : format;
@@ -318,4 +321,5 @@ unittest {
 	test("{\n}", "Unexpected '{', expected values for anonymous node");
 	test(" foo {\n}:", "Unexpected ':', expected end of line", 2);
 	test(" foo {\n}\n:", "Unexpected ':', expected values for anonymous node", 3);
+	test("foo { bar }", "Unexpected identifier 'bar', expected end of line");
 }

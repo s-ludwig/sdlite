@@ -17,6 +17,8 @@ package struct MultiAppender(T)
 
 	@disable this(this);
 
+@safe:
+
 	static if (T.sizeof > 2*long.sizeof) {
 		void put(ref Unqual!T item)
 		{
@@ -39,9 +41,11 @@ package struct MultiAppender(T)
 	}
 
 	T[] extractArray()
-	{
+	@trusted {
 		auto ret = m_buffer[m_base .. m_fill];
 		m_base = m_fill;
+		// NOTE: cast to const/immutable is okay here, because this is the only
+		//       reference to the returned bytes
 		return cast(T[])ret;
 	}
 

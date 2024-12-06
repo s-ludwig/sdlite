@@ -811,7 +811,7 @@ private struct SDLangLexer(R)
 	}
 }
 
-unittest { // single token tests
+@safe unittest { // single token tests
 	MultiAppender!(immutable(char)) chapp;
 	MultiAppender!(immutable(ubyte)) btapp;
 

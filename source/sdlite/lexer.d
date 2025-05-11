@@ -195,7 +195,7 @@ package SDLValue parseValue(R)(ref Token!R t,
 				txt.popFront();
 				auto l0 = txt.length;
 				long fs = txt.parse!long();
-				fracsec = (fs * (10 ^^ (7 - l0))).hnsecs;
+				fracsec = (fs * (10 ^^ (7 - (l0 - txt.length)))).hnsecs;
 			}
 
 			if (!txt.empty) {
@@ -892,6 +892,10 @@ private struct SDLangLexer(R)
 	test("2015/12/06 ", TokenType.date, "2015/12/06", SDLValue.date(Date(2015, 12, 6)));
 	test("2017/11/22 18:00-GMT+00:00", TokenType.dateTime, "2017/11/22 18:00-GMT+00:00", SDLValue.dateTime(SysTime(DateTime(2017, 11, 22, 18, 0, 0), new immutable SimpleTimeZone(0.hours))));
 	test("2017/11/22 18:00-gmt+00:00", TokenType.invalid, "2017/11/22 18:00-", SDLValue.null_, "", true);
+	test("2015/12/06 12:00:00.123", TokenType.dateTime, "2015/12/06 12:00:00.123", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 123.msecs)));
+	test("2015/12/06 12:00:00.123456", TokenType.dateTime, "2015/12/06 12:00:00.123456", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 123456.usecs)));
+	test("2015/12/06 12:00:00.9876543", TokenType.dateTime, "2015/12/06 12:00:00.9876543", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 9876543.hnsecs)));
+	test("2015/12/06 12:00:00.9876543-UTC", TokenType.dateTime, "2015/12/06 12:00:00.9876543-UTC", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 9876543.hnsecs, UTC())));
 
 	test(" {", TokenType.blockOpen, "{", SDLValue.null_, " ");
 	test("\t {", TokenType.blockOpen, "{", SDLValue.null_, "\t ");

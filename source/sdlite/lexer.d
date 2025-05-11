@@ -127,7 +127,7 @@ package SDLValue parseValue(R)(ref Token!R t,
 			if (numparts[1].empty) { // integer or integer-like float
 				auto num = parse!long(numparts[0]);
 				if (numparts[0].empty)
-					return SDLValue.int_(cast(int)num.min(int.max).max(int.min));
+					return SDLValue.int_(cast(int)cast(uint)cast(ulong)num);
 
 				switch (numparts[0].front) {
 					default: assert(false);
@@ -868,6 +868,7 @@ private struct SDLangLexer(R)
 	test("5", TokenType.number, "5", SDLValue.int_(5));
 	test("123", TokenType.number, "123", SDLValue.int_(123));
 	test("-123", TokenType.number, "-123", SDLValue.int_(-123));
+	test("4294967295", TokenType.number, "4294967295", SDLValue.int_(-1)); // handle integer overflow so that uint->int->uint conversion doesn't lose information
 	test("123l", TokenType.number, "123l", SDLValue.long_(123));
 	test("123L", TokenType.number, "123L", SDLValue.long_(123));
 	test("123.123", TokenType.number, "123.123", SDLValue.double_(123.123));

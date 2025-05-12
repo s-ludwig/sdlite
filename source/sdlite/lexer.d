@@ -127,7 +127,7 @@ package SDLValue parseValue(R)(ref Token!R t,
 			if (numparts[1].empty) { // integer or integer-like float
 				auto num = parse!long(numparts[0]);
 				if (numparts[0].empty)
-					return SDLValue.int_(cast(int)num.min(int.max).max(int.min));
+					return SDLValue.int_(cast(int)cast(uint)cast(ulong)num);
 
 				switch (numparts[0].front) {
 					default: assert(false);
@@ -195,7 +195,7 @@ package SDLValue parseValue(R)(ref Token!R t,
 				txt.popFront();
 				auto l0 = txt.length;
 				long fs = txt.parse!long();
-				fracsec = (fs * (10 ^^ (7 - l0))).hnsecs;
+				fracsec = (fs * (10 ^^ (7 - (l0 - txt.length)))).hnsecs;
 			}
 
 			if (!txt.empty) {
@@ -868,6 +868,7 @@ private struct SDLangLexer(R)
 	test("5", TokenType.number, "5", SDLValue.int_(5));
 	test("123", TokenType.number, "123", SDLValue.int_(123));
 	test("-123", TokenType.number, "-123", SDLValue.int_(-123));
+	test("4294967295", TokenType.number, "4294967295", SDLValue.int_(-1)); // handle integer overflow so that uint->int->uint conversion doesn't lose information
 	test("123l", TokenType.number, "123l", SDLValue.long_(123));
 	test("123L", TokenType.number, "123L", SDLValue.long_(123));
 	test("123.123", TokenType.number, "123.123", SDLValue.double_(123.123));
@@ -891,6 +892,10 @@ private struct SDLangLexer(R)
 	test("2015/12/06 ", TokenType.date, "2015/12/06", SDLValue.date(Date(2015, 12, 6)));
 	test("2017/11/22 18:00-GMT+00:00", TokenType.dateTime, "2017/11/22 18:00-GMT+00:00", SDLValue.dateTime(SysTime(DateTime(2017, 11, 22, 18, 0, 0), new immutable SimpleTimeZone(0.hours))));
 	test("2017/11/22 18:00-gmt+00:00", TokenType.invalid, "2017/11/22 18:00-", SDLValue.null_, "", true);
+	test("2015/12/06 12:00:00.123", TokenType.dateTime, "2015/12/06 12:00:00.123", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 123.msecs)));
+	test("2015/12/06 12:00:00.123456", TokenType.dateTime, "2015/12/06 12:00:00.123456", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 123456.usecs)));
+	test("2015/12/06 12:00:00.9876543", TokenType.dateTime, "2015/12/06 12:00:00.9876543", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 9876543.hnsecs)));
+	test("2015/12/06 12:00:00.9876543-UTC", TokenType.dateTime, "2015/12/06 12:00:00.9876543-UTC", SDLValue.dateTime(SysTime(DateTime(2015, 12, 6, 12, 0, 0), 9876543.hnsecs, UTC())));
 
 	test(" {", TokenType.blockOpen, "{", SDLValue.null_, " ");
 	test("\t {", TokenType.blockOpen, "{", SDLValue.null_, "\t ");

@@ -3,4 +3,4 @@ description "Small and fast range based SDLang parser/generator"
 copyright "Copyright © 2019, Sönke Ludwig"
 license "MIT"
 
-dependency "taggedalgebraic" version="~>0.11.4"
+dependency "taggedalgebraic" version=">=0.11.4 <2.0.0-0"
